@@ -101,7 +101,7 @@ function App() {
   const header = <>
     <a className="skip-link" href="#main-content">Skip to main content</a>
     <header className={'app-header' + (staffOpen ? ' staff-active' : '')}>
-      <button className="brand" onClick={() => { setSelected(null); setTab('home') }} aria-label="Belonging Loop home"><span><Sparkles size={20} /></span>belonging <strong>loop</strong></button>{staffOpen && <span className="staff-mode-badge">● STAFF MODE</span>}
+      <button className="brand" onClick={() => { setSelected(null); setTab('home') }} aria-label="Belonging Loop home"><span><Sparkles size={20} /></span>belonging <strong>loop</strong></button><a className="kwhab-mark" href="https://kwhab.ca/" target="_blank" rel="noreferrer" aria-label="Visit KW Habilitation"><img src="/kwhab-logo.jpeg" alt="KW Habilitation services logo" /><span>KW Habilitation</span></a>{staffOpen && <span className="staff-mode-badge">● STAFF MODE</span>}
       <AccessibilityBar mode={mode} pecs={pecs} language={language} onMode={setMode} onPecs={() => setPecs(!pecs)} onColor={() => setColorPicker(true)} onLanguage={setLanguage} />
       <button className="notification-button" onClick={() => setReminders(true)} aria-label="Reminder settings"><Bell size={22} /></button>
       <button className="staff-entry" onClick={() => { setStaffOpen(!staffOpen); setTab(staffOpen ? 'home' : 'staff') }} aria-label="Open staff tools"><Settings2 size={20} /><span>Staff</span></button>
