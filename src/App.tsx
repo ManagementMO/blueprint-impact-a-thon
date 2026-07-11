@@ -1,26 +1,28 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Accessibility, ArrowLeft, Bell, Bus, CalendarDays, Camera, Check, ChevronRight,
   CircleHelp, Clock3, Ear, Heart, Home, Image, MapPin, MessageCircle, Mic,
-  Paintbrush, Pause, Phone, Play, Printer, Repeat2, Settings2, ShieldCheck,
+  Paintbrush, Phone, Printer, Settings2, ShieldCheck,
   Sparkles, Star, Users, Volume2, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Event, events, recommendedEvents } from './lib/events'
+import { AccessibilityBar, ColorModePicker, ColorMode, ReadingMode } from './components/accessibility/AccessibilityBar'
+import { Language, ListenButton } from './components/accessibility/ListenButton'
+import { Onboarding } from './components/features/Onboarding'
+import { HostProfile } from './components/host/HostProfile'
 
 type Tab = 'home' | 'recommended' | 'week' | 'circle' | 'support' | 'staff'
-type Mode = 'Easy Read' | 'Audio First' | 'Standard'
 
 const categories = [
   ['🎨', 'Art'], ['🌳', 'Outdoors'], ['🎵', 'Music'], ['🍳', 'Cooking'],
   ['🏀', 'Sports'], ['🎉', 'Social'], ['🧘', 'Quiet'], ['🚌', 'Trips'],
 ]
 
-const navItems: [LucideIcon, Exclude<Tab, 'staff'>, string][] = [
+const navItems: [LucideIcon, Exclude<Tab, 'recommended' | 'staff'>, string][] = [
   [Home, 'home', 'Home'],
-  [Star, 'recommended', 'Recommended'],
   [CalendarDays, 'week', 'My Week'],
-  [MessageCircle, 'circle', 'Event Circle'],
+  [MessageCircle, 'circle', 'Community'],
   [Heart, 'support', 'Support'],
 ]
 
@@ -32,23 +34,6 @@ const supportCards: [LucideIcon, string, string, string, string][] = [
   [Heart, 'Calm support', 'Quiet space, headphones, or a break plan', 'Priya · event staff', 'Available at events'],
   [Bus, 'Transportation help', 'Bus routes and a ride-planning call', 'Mina · coordinator', 'Call to plan'],
 ]
-
-function ListenButton({ text, label, slow }: { text: string; label: string; slow: boolean }) {
-  const [playing, setPlaying] = useState(false)
-  const speak = () => {
-    setPlaying(true)
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = slow ? 0.72 : 1
-      utterance.onend = () => setPlaying(false)
-      window.speechSynthesis.speak(utterance)
-    }
-  }
-  return <button className={'listen-button' + (playing ? ' playing' : '')} onClick={speak} aria-label={'Listen to ' + label}>
-    {playing ? <Pause size={19} /> : <Volume2 size={19} />}<span>{playing ? 'Speaking slowly' : 'Listen'}</span>
-  </button>
-}
 
 function StatusBadge({ state }: { state: Event['registration'] }) {
   return <span className={'registration ' + (state === 'Yes, just come' ? 'drop-in' : 'signup')}>
@@ -81,29 +66,39 @@ function EventCard({ event, onOpen, compact = false, slow }: { event: Event; onO
 
 function App() {
   const [tab, setTab] = useState<Tab>('home')
-  const [mode, setMode] = useState<Mode>('Easy Read')
+  const [mode, setMode] = useState<ReadingMode>('easy')
   const [pecs, setPecs] = useState(false)
+  const [colorMode, setColorMode] = useState<ColorMode>('normal')
+  const [colorPicker, setColorPicker] = useState(false)
+  const [language, setLanguage] = useState<Language>('en-CA')
+  const [onboarding, setOnboarding] = useState(true)
   const [selected, setSelected] = useState<Event | null>(null)
   const [saved, setSaved] = useState<string[]>([])
   const [circleTab, setCircleTab] = useState<'Updates' | 'Chat' | 'Photos' | 'Going' | 'Help'>('Updates')
   const [requested, setRequested] = useState<string | null>(null)
   const [staffOpen, setStaffOpen] = useState(false)
-  const slow = mode === 'Audio First'
+  const [accessibilityLens, setAccessibilityLens] = useState(false)
+  const slow = mode === 'audio'
   const selectedEvent = selected ?? events[0]
   const save = (event: Event) => setSaved((ids) => ids.includes(event.id) ? ids : [...ids, event.id])
   const savedEvents = useMemo(() => events.filter((event) => saved.includes(event.id)), [saved])
   const openEvent = (event: Event) => { setSelected(event); setTab('recommended') }
 
+  useEffect(() => {
+    document.documentElement.dataset.colorMode = colorMode
+    document.documentElement.dataset.pecs = String(pecs)
+    document.documentElement.lang = language
+  }, [colorMode, language, pecs])
+
   const header = <>
+    <a className="skip-link" href="#main-content">Skip to main content</a>
     <header className="app-header">
       <button className="brand" onClick={() => { setSelected(null); setTab('home') }} aria-label="Belonging Loop home"><span><Sparkles size={20} /></span>belonging <strong>loop</strong></button>
-      <div className="mode-switcher" aria-label="Reading mode">
-        {(['Easy Read', 'Audio First', 'Standard'] as Mode[]).map((item) => <button key={item} className={mode === item ? 'active' : ''} onClick={() => setMode(item)}>{item}</button>)}
-        <button className={'pecs-toggle' + (pecs ? ' active' : '')} onClick={() => setPecs(!pecs)} aria-pressed={pecs}>PECS mode</button>
-      </div>
+      <AccessibilityBar mode={mode} pecs={pecs} language={language} onMode={setMode} onPecs={() => setPecs(!pecs)} onColor={() => setColorPicker(true)} onLanguage={setLanguage} />
       <button className="staff-entry" onClick={() => { setStaffOpen(!staffOpen); setTab(staffOpen ? 'home' : 'staff') }} aria-label="Open staff tools"><Settings2 size={20} /><span>Staff</span></button>
     </header>
-    {mode === 'Audio First' && <div className="audio-banner"><Volume2 size={19} /><strong>Audio First</strong><span>Tap any speaker. Speech is slower.</span><button onClick={() => window.speechSynthesis?.cancel()}><X size={16} /> Stop</button></div>}
+    {pecs && <div className="pecs-banner" role="status"><Image size={21} /><strong>PECS is ON</strong><span>Tap a picture.</span></div>}
+    {mode === 'audio' && <div className="audio-banner"><Volume2 size={19} /><strong>Audio First</strong><span>Tap any speaker. Speech is slower.</span><button onClick={() => window.speechSynthesis?.cancel()} aria-label="Stop listening"><X size={16} /> Stop</button></div>}
   </>
 
   const renderHome = () => <section className="screen home-screen">
@@ -115,10 +110,12 @@ function App() {
 
   const renderRecommended = () => selected ? <section className="screen event-detail">
     <button className="back-button" onClick={() => setSelected(null)}><ArrowLeft size={19} />Back to events</button>
-    <div className="detail-hero"><img src={selected.image} alt={selected.title + ' event'} /><div><p className="eyebrow">{selected.category}</p><h1>{selected.title}</h1><p>{mode === 'Standard' ? selected.short : selected.plain}</p><ListenButton text={selected.plain} label={selected.title + ' description'} slow={slow} /></div></div>
+    <HostProfile slow={slow} language={language} />
+    <div className="detail-hero"><img src={selected.image} alt={selected.title + ' event'} /><div><p className="eyebrow">{selected.category}</p><h1>{selected.title}</h1><p>{mode === 'standard' ? selected.short : selected.plain}</p><ListenButton text={selected.plain} label={selected.title + ' description'} slow={slow} language={language} /></div></div>
     <div className="detail-actions"><StatusBadge state={selected.registration} /><button className="save-button" onClick={() => save(selected)}>{saved.includes(selected.id) ? <Check size={20} /> : <CalendarDays size={20} />}{saved.includes(selected.id) ? 'Saved to My Week' : 'Save to My Week'}</button></div>
     <p className="recommendation detail-reason"><Sparkles size={18} />{selected.reason}</p>
-    <SymbolStrip event={selected} />
+    <div className="lens-row"><button className={accessibilityLens ? 'lens-button active' : 'lens-button'} onClick={() => setAccessibilityLens(!accessibilityLens)} aria-pressed={accessibilityLens}><Accessibility size={20} />Accessibility Lens</button>{accessibilityLens && <div className="lens-summary"><span>🚪 Step-free: reported</span><span>🔇 Quiet break: yes</span><span>🚌 {selected.bus}</span><span>🚻 Washroom: ask host</span><span>👥 {selected.group}</span></div>}</div>
+    {!accessibilityLens && <SymbolStrip event={selected} />}
     <section className="arrival-section"><div className="section-title"><div><p className="eyebrow">WHEN I GET THERE</p><h2>What happens when I arrive?</h2><p>Tap a picture to hear the step.</p></div><ListenButton text={selected.arrival.map((step) => step.title + '. ' + step.detail).join('. ')} label="arrival steps" slow={slow} /></div><div className="arrival-steps">{selected.arrival.map((step, index) => <button key={step.title} onClick={() => { if ('speechSynthesis' in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(step.title + '. ' + step.detail)) }}><img src={step.image} alt={step.title} /><span className="step-number">{index + 1}</span><span className="step-icon">{step.icon}</span><strong>{step.title}</strong><small>{step.detail}</small><Volume2 size={17} /></button>)}</div></section>
     <section className="fact-note"><ShieldCheck size={24} /><div><strong>Event facts are checked by the host.</strong><p>Some access details are reported. Ask staff if you need to know more.</p></div><button onClick={() => setTab('support')}>Get support <ChevronRight size={18} /></button></section>
   </section> : <section className="screen recommended-screen"><div className="welcome-row"><div><p className="eyebrow">A FEW GOOD MATCHES</p><h1>{pecs ? 'Good events' : 'Recommended for you'}</h1><p>{pecs ? 'Tap one event.' : 'Only a few events that fit your choices.'}</p></div><ListenButton text="Here are a few events picked for you." label="recommended events" slow={slow} /></div><div className="event-grid">{recommendedEvents.map((event) => <EventCard key={event.id} event={event} onOpen={openEvent} slow={slow} />)}</div></section>
@@ -131,7 +128,9 @@ function App() {
 
   const renderStaff = () => <section className="staff-screen"><header><div><p className="eyebrow">STAFF TOOLS · PROTOTYPE ONLY</p><h1>Event workspace</h1><p>Detailed tools stay separate from the participant calendar.</p></div><button onClick={() => { setStaffOpen(false); setTab('home') }}><ArrowLeft size={19} />Participant view</button></header><div className="staff-grid"><article><h2>1. Event details</h2><label>Event name<input defaultValue="Accessible Nature Walk" /></label><label>Plain-language description<textarea defaultValue={events[0].plain} /></label><button>Save event details</button></article><article><h2>2. Arrival and access</h2><p><Image size={18} />4 arrival photos ready</p><p><Check size={18} />Step-free path: reported Jul 10</p><p><CircleHelp size={18} />Quiet bench: confirmed by host</p><button>Update access facts</button></article><article><h2>3. Community and support</h2><p><Users size={18} />8 private attendees</p><p><MessageCircle size={18} />2 chat questions to review</p><p><Camera size={18} />3 photos waiting for consent check</p><button>Open moderation</button></article><article><h2>4. Support coordination</h2><p><Accessibility size={18} />Jordan: mobility support</p><p><Bus size={18} />Route 7 transport information</p><p><ShieldCheck size={18} />No support is assigned automatically</p><button>Review support requests</button></article></div></section>
 
-  return <div className="app-shell">{header}<main>{tab === 'home' ? renderHome() : tab === 'recommended' ? renderRecommended() : tab === 'week' ? renderWeek() : tab === 'circle' ? renderCircle() : tab === 'support' ? renderSupport() : renderStaff()}</main>{tab !== 'staff' && <nav className="bottom-nav" aria-label="Main navigation">{navItems.map(([Icon, value, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => { setSelected(null); setTab(value) }} aria-label={label}><Icon size={23} /><span>{label}</span></button>)}</nav>}</div>
+  if (onboarding) return <div className="app-shell">{header}<Onboarding onFinish={() => setOnboarding(false)} onMode={(nextMode, nextPecs) => { setMode(nextMode); if (nextPecs) setPecs(true) }} />{colorPicker && <ColorModePicker onChoose={setColorMode} onClose={() => setColorPicker(false)} />}</div>
+
+  return <div className="app-shell">{header}<main id="main-content">{tab === 'home' ? renderHome() : tab === 'recommended' ? renderRecommended() : tab === 'week' ? renderWeek() : tab === 'circle' ? renderCircle() : tab === 'support' ? renderSupport() : renderStaff()}</main>{tab !== 'staff' && <nav className="bottom-nav" aria-label="Main navigation">{navItems.map(([Icon, value, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => { setSelected(null); setTab(value) }} aria-label={label}><Icon size={30} /><span>{label}</span></button>)}</nav>}{colorPicker && <ColorModePicker onChoose={setColorMode} onClose={() => setColorPicker(false)} />}</div>
 }
 
 export default App
