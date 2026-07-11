@@ -1,704 +1,137 @@
 import { useMemo, useState } from 'react'
 import {
-  ArrowRight,
-  Bell,
-  Bot,
-  CalendarDays,
-  Check,
-  ChevronRight,
-  CircleHelp,
-  ClipboardCheck,
-  Compass,
-  Ear,
-  Flower2,
-  Footprints,
-  HandHeart,
-  Leaf,
-  LockKeyhole,
-  MapPin,
-  Menu,
-  MessageCircle,
-  MoreHorizontal,
-  MoveRight,
-  Music2,
-  PencilLine,
-  Plus,
-  Route,
-  ShieldCheck,
-  Sparkles,
-  UsersRound,
-  Volume2,
-  Wheat,
-  X,
+  Accessibility, ArrowLeft, Bell, Bus, CalendarDays, Camera, Check, ChevronRight,
+  CircleHelp, Clock3, Ear, Heart, Home, Image, MapPin, MessageCircle, Mic,
+  Paintbrush, Pause, Phone, Play, Printer, Repeat2, Settings2, ShieldCheck,
+  Sparkles, Star, Users, Volume2, X,
 } from 'lucide-react'
-import { describeEventFit } from './lib/belonging'
+import type { LucideIcon } from 'lucide-react'
+import { Event, events, recommendedEvents } from './lib/events'
 
-type View = 'discover' | 'plan' | 'circle' | 'host'
-type SupportMode = 'paid' | 'helper'
+type Tab = 'home' | 'recommended' | 'week' | 'circle' | 'support' | 'staff'
+type Mode = 'Easy Read' | 'Audio First' | 'Standard'
 
-const eventCandidate = {
-  interests: ['nature', 'wellness'],
-  day: 'Saturday',
-  groupSize: 'small' as const,
-  accessFacts: {
-    'quiet-break': 'confirmed' as const,
-    'mobility-support': 'not-arranged' as const,
-  },
-}
-
-const wish = {
-  interests: ['nature'],
-  preferredDay: 'Saturday',
-  groupPreference: 'small' as const,
-  needs: ['quiet-break', 'mobility-support'],
-}
-
-const accessFacts = [
-  {
-    label: 'Trail entrance',
-    value: 'Meet beside the west pavilion gate',
-    state: 'Confirmed',
-    detail: 'KW Hab host checked Jul 10',
-    icon: MapPin,
-  },
-  {
-    label: 'First five minutes',
-    value: 'Say hello, choose a name tag, meet the group',
-    state: 'Confirmed',
-    detail: 'Host guide for this event',
-    icon: HandHeart,
-  },
-  {
-    label: 'Quiet break spot',
-    value: 'Benches near the native garden',
-    state: 'Confirmed',
-    detail: 'Our Farm team checked Jul 9',
-    icon: Leaf,
-  },
-  {
-    label: 'Accessible washroom',
-    value: 'Inside the pavilion, 45 m from the trailhead',
-    state: 'Reported',
-    detail: 'Reported by a partner',
-    icon: CircleHelp,
-  },
-  {
-    label: 'Mobility support',
-    value: 'Not arranged yet',
-    state: 'Not known',
-    detail: 'Coordinator review needed',
-    icon: Route,
-  },
+const categories = [
+  ['🎨', 'Art'], ['🌳', 'Outdoors'], ['🎵', 'Music'], ['🍳', 'Cooking'],
+  ['🏀', 'Sports'], ['🎉', 'Social'], ['🧘', 'Quiet'], ['🚌', 'Trips'],
 ]
 
-const steps = [
-  {
-    title: 'Arrive at the west pavilion',
-    detail: 'Look for the yellow welcome flag beside the garden gate.',
-    icon: MapPin,
-  },
-  {
-    title: 'Meet Tasha at the check-in table',
-    detail: 'She will have name tags and the day’s easy-read trail map.',
-    icon: HandHeart,
-  },
-  {
-    title: 'Choose your pace before the walk',
-    detail: 'The group starts after a short hello and a quiet moment to settle in.',
-    icon: Footprints,
-  },
+const navItems: [LucideIcon, Exclude<Tab, 'staff'>, string][] = [
+  [Home, 'home', 'Home'],
+  [Star, 'recommended', 'Recommended'],
+  [CalendarDays, 'week', 'My Week'],
+  [MessageCircle, 'circle', 'Event Circle'],
+  [Heart, 'support', 'Support'],
 ]
 
-function StatusPill({ state }: { state: string }) {
-  const normalized = state.toLowerCase().replace(' ', '-')
-  return <span className={'status-pill ' + normalized}>{state}</span>
+const supportCards: [LucideIcon, string, string, string, string][] = [
+  [Accessibility, 'Mobility support', 'Entrances, paths, and getting around', 'Jordan · trained staff', 'Available to request'],
+  [MessageCircle, 'Communication support', 'Pictures, plain words, and time to talk', 'Mina · communication helper', 'Available to request'],
+  [Ear, 'Hearing support', 'Find a quieter seat or use a hearing loop', 'Staff can check first', 'Ask the host'],
+  [Accessibility, 'Visual support', 'A sighted guide and clear route details', 'Jordan · trained staff', 'Book ahead'],
+  [Heart, 'Calm support', 'Quiet space, headphones, or a break plan', 'Priya · event staff', 'Available at events'],
+  [Bus, 'Transportation help', 'Bus routes and a ride-planning call', 'Mina · coordinator', 'Call to plan'],
+]
+
+function ListenButton({ text, label, slow }: { text: string; label: string; slow: boolean }) {
+  const [playing, setPlaying] = useState(false)
+  const speak = () => {
+    setPlaying(true)
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.rate = slow ? 0.72 : 1
+      utterance.onend = () => setPlaying(false)
+      window.speechSynthesis.speak(utterance)
+    }
+  }
+  return <button className={'listen-button' + (playing ? ' playing' : '')} onClick={speak} aria-label={'Listen to ' + label}>
+    {playing ? <Pause size={19} /> : <Volume2 size={19} />}<span>{playing ? 'Speaking slowly' : 'Listen'}</span>
+  </button>
+}
+
+function StatusBadge({ state }: { state: Event['registration'] }) {
+  return <span className={'registration ' + (state === 'Yes, just come' ? 'drop-in' : 'signup')}>
+    {state === 'Yes, just come' ? <Check size={18} /> : <CalendarDays size={18} />}{state}
+  </span>
+}
+
+function SymbolStrip({ event }: { event: Event }) {
+  const items = [
+    ['🎨', event.category], ['🕐', event.day + ' · ' + event.time], ['📍', event.place], ['🆓', event.cost],
+    ['🚌', event.bus], ['👥', event.group], ['🔊', event.noise], ['♿', event.access], ['🧑‍🤝‍🧑', event.support],
+  ]
+  return <div className="symbol-strip" aria-label="Event details">{items.map(([icon, value]) => <span key={value}><b aria-hidden="true">{icon}</b>{value}</span>)}</div>
+}
+
+function EventCard({ event, onOpen, compact = false, slow }: { event: Event; onOpen: (event: Event) => void; compact?: boolean; slow: boolean }) {
+  return <article className={'event-card' + (compact ? ' compact' : '')}>
+    <button className="event-image-button" onClick={() => onOpen(event)} aria-label={event.title}>
+      <img src={event.image} alt={event.title + ' event'} /><span className="event-photo-tag">{event.category}</span>
+    </button>
+    <div className="event-card-body">
+      <div className="event-card-title"><h3>{event.title}</h3><ListenButton text={event.title + '. ' + event.plain} label={event.title} slow={slow} /></div>
+      <StatusBadge state={event.registration} />
+      {!compact && <p className="recommendation"><Sparkles size={16} />{event.reason}</p>}
+      <div className="mini-details"><span><Clock3 size={16} />{event.day}</span><span><MapPin size={16} />{event.place}</span></div>
+      <button className="open-event" onClick={() => onOpen(event)}>See event <ChevronRight size={18} /></button>
+    </div>
+  </article>
 }
 
 function App() {
-  const [view, setView] = useState<View>('discover')
-  const [showMatch, setShowMatch] = useState(false)
-  const [selectedInterest, setSelectedInterest] = useState<'nature' | 'music' | 'art'>('nature')
-  const [wishShared, setWishShared] = useState(false)
-  const [audioReady, setAudioReady] = useState(false)
-  const [joined, setJoined] = useState(false)
-  const [cakeClaimed, setCakeClaimed] = useState(false)
-  const [supportMode, setSupportMode] = useState<SupportMode>('paid')
-  const [reviewed, setReviewed] = useState(false)
-  const [published, setPublished] = useState(false)
-  const [hostTitle, setHostTitle] = useState('Saturday Trail Circle')
-  const [entrance, setEntrance] = useState('West pavilion gate beside the native garden')
-  const [quietState, setQuietState] = useState('Confirmed')
-  const [supportState, setSupportState] = useState('Not arranged')
+  const [tab, setTab] = useState<Tab>('home')
+  const [mode, setMode] = useState<Mode>('Easy Read')
+  const [pecs, setPecs] = useState(false)
+  const [selected, setSelected] = useState<Event | null>(null)
+  const [saved, setSaved] = useState<string[]>([])
+  const [circleTab, setCircleTab] = useState<'Updates' | 'Chat' | 'Photos' | 'Going' | 'Help'>('Updates')
+  const [requested, setRequested] = useState<string | null>(null)
+  const [staffOpen, setStaffOpen] = useState(false)
+  const slow = mode === 'Audio First'
+  const selectedEvent = selected ?? events[0]
+  const save = (event: Event) => setSaved((ids) => ids.includes(event.id) ? ids : [...ids, event.id])
+  const savedEvents = useMemo(() => events.filter((event) => saved.includes(event.id)), [saved])
+  const openEvent = (event: Event) => { setSelected(event); setTab('recommended') }
 
-  const fit = useMemo(() => describeEventFit(wish, eventCandidate), [])
-
-  const speak = () => {
-    setAudioReady(true)
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      window.speechSynthesis.speak(
-        new SpeechSynthesisUtterance(
-          'Saturday Trail Circle. Small group nature walk. Meet at the west pavilion at ten thirty.',
-        ),
-      )
-    }
-  }
-
-  const goTo = (nextView: View) => {
-    if (nextView !== 'discover') {
-      setShowMatch(true)
-    }
-    setView(nextView)
-  }
-
-  const renderDiscover = () => {
-    if (showMatch) {
-      if (selectedInterest !== 'nature') {
-        const interestLabel = selectedInterest === 'music' ? 'music' : 'making something'
-        const InterestIcon = selectedInterest === 'music' ? Music2 : Flower2
-
-        return (
-          <section className="screen empty-match" aria-labelledby="wish-shared-title">
-            <div className="empty-match-mark"><InterestIcon size={28} aria-hidden="true" /></div>
-            <span className="section-eyebrow">A useful no-match</span>
-            <h1 id="wish-shared-title">We do not see a close {interestLabel} match for Saturday yet.</h1>
-            <p>That is useful information. You can add this wish anonymously so the Collective sees the pattern without seeing your name.</p>
-            <div className="anonymous-wish-card">
-              <div>
-                <span>Shared only as a group pattern</span>
-                <strong>Small, calm {interestLabel} on a Saturday morning</strong>
-              </div>
-              <LockKeyhole size={22} aria-hidden="true" />
-            </div>
-            <div className="action-row">
-              <button className={wishShared ? 'published-button' : 'primary-button'} onClick={() => setWishShared(true)}>
-                {wishShared ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
-                {wishShared ? 'Wish shared anonymously' : 'Share this wish'}
-              </button>
-              <button className="secondary-button" onClick={() => { setSelectedInterest('nature'); setShowMatch(false) }}>
-                Choose a different day
-                <ArrowRight size={18} aria-hidden="true" />
-              </button>
-            </div>
-            {wishShared && <p className="share-confirmation"><ShieldCheck size={16} aria-hidden="true" /> Partners only see this after enough similar wishes are grouped together.</p>}
-          </section>
-        )
-      }
-
-      return (
-        <section className="screen match-screen" aria-labelledby="match-title">
-          <div className="screen-topline">
-            <button className="back-link" onClick={() => setShowMatch(false)}>
-              <ArrowRight size={16} aria-hidden="true" />
-              Edit my wish
-            </button>
-            <span className="match-score">{fit.score}% match from your choices</span>
-          </div>
-
-          <div className="event-hero">
-            <img
-              src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1800&q=85"
-              alt="Sunlight filtering through a green forest trail"
-            />
-            <div className="hero-scrim" />
-            <div className="event-hero-content">
-              <div className="event-kicker">
-                <span>Saturday</span>
-                <span>10:30 AM - 12:15 PM</span>
-              </div>
-              <h1 id="match-title">{hostTitle}</h1>
-              <p>Small group trail walk with space to set your own pace.</p>
-              <div className="event-meta">
-                <span><MapPin size={16} aria-hidden="true" /> Our Farm, Waterloo</span>
-                <span><UsersRound size={16} aria-hidden="true" /> 8 people going</span>
-              </div>
-            </div>
-            <button className="listen-button" onClick={speak} aria-pressed={audioReady}>
-              <Volume2 size={18} aria-hidden="true" />
-              {audioReady ? 'Listening guide ready' : 'Listen to this event'}
-            </button>
-          </div>
-
-          <div className="match-grid">
-            <section className="match-panel panel-soft">
-              <span className="section-eyebrow">Why it came up</span>
-              <h2>Built around your choices, not a category.</h2>
-              <ul className="reason-list">
-                {fit.reasons.map((reason) => (
-                  <li key={reason}>
-                    <Check size={16} aria-hidden="true" />
-                    {reason}
-                  </li>
-                ))}
-              </ul>
-            </section>
-            <section className="match-panel panel-alert">
-              <div className="alert-icon"><ShieldCheck size={20} aria-hidden="true" /></div>
-              <span className="section-eyebrow">Important before you decide</span>
-              <h2>{fit.blockers[0]}</h2>
-              <p>A coordinator can review an approved support option. You choose whether it works for you.</p>
-              <button className="text-button" onClick={() => goTo('host')}>
-                See the support plan
-                <ChevronRight size={16} aria-hidden="true" />
-              </button>
-            </section>
-          </div>
-
-          <div className="action-row">
-            <button className="primary-button" onClick={() => goTo('plan')}>
-              See what to expect
-              <ArrowRight size={18} aria-hidden="true" />
-            </button>
-            <button className="secondary-button" onClick={() => goTo('circle')}>
-              Visit the event circle
-              <MessageCircle size={18} aria-hidden="true" />
-            </button>
-          </div>
-        </section>
-      )
-    }
-
-    return (
-      <section className="screen wish-screen" aria-labelledby="wish-title">
-        <div className="wish-header">
-          <div>
-            <span className="section-eyebrow">Maya's private plan</span>
-            <h1 id="wish-title">A day that feels like yours.</h1>
-            <p>Choose what matters today. No diagnosis, account, or public RSVP needed.</p>
-          </div>
-          <button className="audio-guide" onClick={speak} aria-pressed={audioReady}>
-            <Volume2 size={18} aria-hidden="true" />
-            {audioReady ? 'Audio guide ready' : 'Read this aloud'}
-          </button>
-        </div>
-
-        <div className="journey-card">
-          <div className="journey-rail" aria-label="Wish flow progress">
-            <span className="rail-label active">1. What sounds good</span>
-            <span className="rail-line" />
-            <span className="rail-label">2. When it works</span>
-            <span className="rail-line" />
-            <span className="rail-label">3. What would help</span>
-          </div>
-          <div className="wish-content">
-            <div className="question-marker">01</div>
-            <span className="section-eyebrow">Start with the feeling</span>
-            <h2>What would make Saturday feel good?</h2>
-            <div className="choice-grid" role="group" aria-label="Interest choices">
-              <button className={selectedInterest === 'nature' ? 'choice-card selected' : 'choice-card'} onClick={() => setSelectedInterest('nature')}>
-                <span className="choice-icon nature"><Leaf size={25} aria-hidden="true" /></span>
-                <span>Fresh air</span>
-                <small>Nature and movement</small>
-              </button>
-              <button className={selectedInterest === 'music' ? 'choice-card selected' : 'choice-card'} onClick={() => setSelectedInterest('music')}>
-                <span className="choice-icon sound"><Music2 size={25} aria-hidden="true" /></span>
-                <span>Music</span>
-                <small>Listen, sing, or play</small>
-              </button>
-              <button className={selectedInterest === 'art' ? 'choice-card selected' : 'choice-card'} onClick={() => setSelectedInterest('art')}>
-                <span className="choice-icon make"><Flower2 size={25} aria-hidden="true" /></span>
-                <span>Make something</span>
-                <small>Hands-on and social</small>
-              </button>
-            </div>
-            <div className="wish-summary">
-              <div><span>When</span><strong>Saturday morning</strong></div>
-              <div><span>Group</span><strong>Small and calm</strong></div>
-              <div><span>Helpful to have</span><strong>Quiet break + mobility support</strong></div>
-            </div>
-            <button className="primary-button" onClick={() => setShowMatch(true)}>
-              Show my match
-              <ArrowRight size={18} aria-hidden="true" />
-            </button>
-            <p className="privacy-note"><LockKeyhole size={14} aria-hidden="true" /> Your choices stay private. Shared wishes are only shown in anonymous groups.</p>
-          </div>
-        </div>
-
-        <div className="soft-insight">
-          <Compass size={19} aria-hidden="true" />
-          <p><strong>Nothing feels right?</strong> You can share a wish anonymously. Partners see patterns, not people.</p>
-          <button className="text-button" onClick={() => { setSelectedInterest('music'); setShowMatch(true) }}>Share a different wish <MoveRight size={16} aria-hidden="true" /></button>
-        </div>
-      </section>
-    )
-  }
-
-  const renderPlan = () => (
-    <section className="screen plan-screen" aria-labelledby="plan-title">
-      <div className="plan-heading">
-        <div>
-          <span className="section-eyebrow">Before I go</span>
-          <h1 id="plan-title">A calm start, step by step.</h1>
-          <p>These are facts about this event, not a promise that one setting works for everyone.</p>
-        </div>
-        <button className="outline-button" onClick={speak}>
-          <Volume2 size={17} aria-hidden="true" /> Read arrival guide
-        </button>
+  const header = <>
+    <header className="app-header">
+      <button className="brand" onClick={() => { setSelected(null); setTab('home') }} aria-label="Belonging Loop home"><span><Sparkles size={20} /></span>belonging <strong>loop</strong></button>
+      <div className="mode-switcher" aria-label="Reading mode">
+        {(['Easy Read', 'Audio First', 'Standard'] as Mode[]).map((item) => <button key={item} className={mode === item ? 'active' : ''} onClick={() => setMode(item)}>{item}</button>)}
+        <button className={'pecs-toggle' + (pecs ? ' active' : '')} onClick={() => setPecs(!pecs)} aria-pressed={pecs}>PECS mode</button>
       </div>
+      <button className="staff-entry" onClick={() => { setStaffOpen(!staffOpen); setTab(staffOpen ? 'home' : 'staff') }} aria-label="Open staff tools"><Settings2 size={20} /><span>Staff</span></button>
+    </header>
+    {mode === 'Audio First' && <div className="audio-banner"><Volume2 size={19} /><strong>Audio First</strong><span>Tap any speaker. Speech is slower.</span><button onClick={() => window.speechSynthesis?.cancel()}><X size={16} /> Stop</button></div>}
+  </>
 
-      <div className="arrival-layout">
-        <div className="arrival-image">
-          <img
-              src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=85"
-            alt="A quiet forest path with sunlight between tall trees"
-          />
-          <div className="arrival-image-caption">
-            <MapPin size={16} aria-hidden="true" />
-            West pavilion gate, beside the native garden
-          </div>
-        </div>
-        <div className="step-list">
-          {steps.map((step, index) => {
-            const Icon = step.icon
-            return (
-              <article className="arrival-step" key={step.title}>
-                <span className="step-number">0{index + 1}</span>
-                <span className="step-icon"><Icon size={18} aria-hidden="true" /></span>
-                <div>
-                  <h2>{step.title}</h2>
-                  <p>{step.detail}</p>
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      </div>
+  const renderHome = () => <section className="screen home-screen">
+    <div className="welcome-row"><div><p className="eyebrow">YOUR COMMUNITY EVENTS</p><h1>{pecs ? 'Tap a picture' : 'What would you like to do?'}</h1><p>{pecs ? 'Choose one picture.' : 'Pick a picture. We will show a few good events.'}</p></div><ListenButton text="What would you like to do? Pick a picture. We will show good events." label="Home" slow={slow} /></div>
+    <button className="say-wish" onClick={() => setTab('recommended')}><span><Mic size={29} /></span><div><strong>{pecs ? '🎤' : 'Tell us with your voice'}</strong><small>{pecs ? 'Tap to talk' : 'Say what you want to do'}</small></div><ChevronRight size={22} /></button>
+    <div className="category-grid" aria-label="Event categories">{categories.map(([emoji, title]) => <button key={title} onClick={() => setTab('recommended')} aria-label={title}><span>{emoji}</span><strong>{pecs ? '' : title}</strong></button>)}</div>
+    <section className="next-event"><div><p className="eyebrow">COMING UP</p><h2>Saturday morning</h2><p>One calm outdoor event is ready to explore.</p></div><EventCard event={events[0]} onOpen={openEvent} compact slow={slow} /></section>
+  </section>
 
-      <section className="facts-section" aria-labelledby="facts-title">
-        <div className="section-heading-row">
-          <div>
-            <span className="section-eyebrow">Event facts</span>
-            <h2 id="facts-title">What we know right now</h2>
-          </div>
-          <span className="fact-legend"><span className="legend-dot confirmed-dot" /> Confirmed <span className="legend-dot reported-dot" /> Reported <span className="legend-dot unknown-dot" /> Not known</span>
-        </div>
-        <div className="facts-grid">
-          {accessFacts.map((fact) => {
-            const Icon = fact.icon
-            return (
-              <article className="fact-card" key={fact.label}>
-                <div className="fact-card-top">
-                  <span className="fact-icon"><Icon size={18} aria-hidden="true" /></span>
-                  <StatusPill state={fact.state} />
-                </div>
-                <h3>{fact.label}</h3>
-                <p>{fact.value}</p>
-                <small>{fact.detail}</small>
-              </article>
-            )
-          })}
-        </div>
-      </section>
+  const renderRecommended = () => selected ? <section className="screen event-detail">
+    <button className="back-button" onClick={() => setSelected(null)}><ArrowLeft size={19} />Back to events</button>
+    <div className="detail-hero"><img src={selected.image} alt={selected.title + ' event'} /><div><p className="eyebrow">{selected.category}</p><h1>{selected.title}</h1><p>{mode === 'Standard' ? selected.short : selected.plain}</p><ListenButton text={selected.plain} label={selected.title + ' description'} slow={slow} /></div></div>
+    <div className="detail-actions"><StatusBadge state={selected.registration} /><button className="save-button" onClick={() => save(selected)}>{saved.includes(selected.id) ? <Check size={20} /> : <CalendarDays size={20} />}{saved.includes(selected.id) ? 'Saved to My Week' : 'Save to My Week'}</button></div>
+    <p className="recommendation detail-reason"><Sparkles size={18} />{selected.reason}</p>
+    <SymbolStrip event={selected} />
+    <section className="arrival-section"><div className="section-title"><div><p className="eyebrow">WHEN I GET THERE</p><h2>What happens when I arrive?</h2><p>Tap a picture to hear the step.</p></div><ListenButton text={selected.arrival.map((step) => step.title + '. ' + step.detail).join('. ')} label="arrival steps" slow={slow} /></div><div className="arrival-steps">{selected.arrival.map((step, index) => <button key={step.title} onClick={() => { if ('speechSynthesis' in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(step.title + '. ' + step.detail)) }}><img src={step.image} alt={step.title} /><span className="step-number">{index + 1}</span><span className="step-icon">{step.icon}</span><strong>{step.title}</strong><small>{step.detail}</small><Volume2 size={17} /></button>)}</div></section>
+    <section className="fact-note"><ShieldCheck size={24} /><div><strong>Event facts are checked by the host.</strong><p>Some access details are reported. Ask staff if you need to know more.</p></div><button onClick={() => setTab('support')}>Get support <ChevronRight size={18} /></button></section>
+  </section> : <section className="screen recommended-screen"><div className="welcome-row"><div><p className="eyebrow">A FEW GOOD MATCHES</p><h1>{pecs ? 'Good events' : 'Recommended for you'}</h1><p>{pecs ? 'Tap one event.' : 'Only a few events that fit your choices.'}</p></div><ListenButton text="Here are a few events picked for you." label="recommended events" slow={slow} /></div><div className="event-grid">{recommendedEvents.map((event) => <EventCard key={event.id} event={event} onOpen={openEvent} slow={slow} />)}</div></section>
 
-      <div className="plan-actions">
-        <div className="support-message">
-          <ShieldCheck size={20} aria-hidden="true" />
-          <p><strong>Mobility support is not arranged.</strong> A coordinator can review an approved option. You can still decide not to attend.</p>
-        </div>
-        <div className="button-cluster">
-          <button className="secondary-button" onClick={() => goTo('host')}>View coordinator review <ChevronRight size={17} aria-hidden="true" /></button>
-          <button className="primary-button" onClick={() => goTo('circle')}>Go to my event circle <ArrowRight size={17} aria-hidden="true" /></button>
-        </div>
-      </div>
-    </section>
-  )
+  const renderWeek = () => <section className="screen week-screen"><div className="welcome-row"><div><p className="eyebrow">MY WEEK</p><h1>My plans</h1><p>Events you saved stay here.</p></div><button className="print-button" onClick={() => window.print()}><Printer size={20} />Print My Week</button></div>{savedEvents.length ? <div className="week-list">{savedEvents.map((event) => <article key={event.id} className="week-card"><div className="date-box"><strong>{event.day.slice(0, 3)}</strong><span>{event.time.slice(0, 5)}</span></div><img src={event.image} alt="" /><div><h2>{event.title}</h2><p><Bus size={16} />{event.bus}</p><p><Heart size={16} />{event.support}</p></div><StatusBadge state={event.registration} /><ListenButton text={event.title + '. ' + event.day + '. ' + event.time + '. ' + event.bus} label={event.title} slow={slow} /></article>)}</div> : <div className="empty-week"><CalendarDays size={42} /><h2>No events saved yet</h2><p>Look at recommended events and tap Save to My Week.</p><button onClick={() => setTab('recommended')}>See events <ChevronRight size={19} /></button></div>}<div className="fridge-note"><Printer size={19} /><span><strong>Print My Week</strong> makes a big, simple schedule with pictures and room for notes.</span></div></section>
 
-  const renderCircle = () => (
-    <section className="screen circle-screen" aria-labelledby="circle-title">
-      <div className="circle-hero">
-        <div>
-          <div className="circle-topline">
-            <span className="section-eyebrow">Saturday Trail Circle</span>
-            <span className="private-chip"><LockKeyhole size={13} aria-hidden="true" /> Attendance stays private</span>
-          </div>
-          <h1 id="circle-title">Join the moment before you arrive.</h1>
-          <p>A small, host-moderated space for questions, preparation, and optional ways to take part.</p>
-        </div>
-        <button className={joined ? 'joined-button' : 'primary-button'} onClick={() => setJoined(!joined)}>
-          {joined ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
-          {joined ? 'Joining privately' : 'Join privately'}
-        </button>
-      </div>
+  const renderCircle = () => <section className="screen circle-screen"><div className="circle-heading"><div><p className="eyebrow">EVENT CIRCLE</p><h1>{selectedEvent.title}</h1><p>A small, moderated space for this one event.</p></div><span className="private-badge"><ShieldCheck size={17} />Names stay private</span></div><div className="circle-tabs">{(['Updates', 'Chat', 'Photos', 'Going', 'Help'] as const).map((item) => <button key={item} className={circleTab === item ? 'active' : ''} onClick={() => setCircleTab(item)}><span>{item === 'Updates' ? '📢' : item === 'Chat' ? '💬' : item === 'Photos' ? '📷' : item === 'Going' ? '🙋' : '🎁'}</span>{item}</button>)}</div>{circleTab === 'Updates' && <div className="circle-panel announcement"><Bell size={27} /><div><p className="eyebrow">FROM THE HOST</p><h2>Today’s event is in Room 2.</h2><p>The quiet room is next door. Support people are welcome.</p></div><ListenButton text="Today’s event is in Room 2. The quiet room is next door. Support people are welcome." label="host update" slow={slow} /></div>}{circleTab === 'Chat' && <div className="circle-panel chat"><p className="moderated"><ShieldCheck size={16} />Host-moderated chat</p><div className="message question"><span>J</span><p>Hi! Is there a quiet room?</p><ListenButton text="Hi. Is there a quiet room?" label="chat question" slow={slow} /></div><div className="message answer"><span>T</span><p>Yes. There is a quiet room beside the main activity room.</p><ListenButton text="Yes. There is a quiet room beside the main activity room." label="chat answer" slow={slow} /></div><div className="message question"><span>M</span><p>Can I bring my support person?</p></div><div className="message answer"><span>T</span><p>Yes. Support people are welcome.</p></div></div>}{circleTab === 'Photos' && <div className="photo-panel"><p><Camera size={17} />Photos only show people who said yes.</p><div>{[events[1], events[0], events[2]].map((event) => <figure key={event.id}><img src={event.image} alt={'Consent-approved photo from ' + event.title} /><figcaption><span>Consent approved</span>{event.title}<ListenButton text={'A photo from ' + event.title} label={event.title + ' photo'} slow={slow} /></figcaption></figure>)}</div></div>}{circleTab === 'Going' && <div className="circle-panel going"><Users size={33} /><h2>8 people are going</h2><p>You can join without showing your name.</p><div className="avatars"><span>J</span><span>S</span><span>A</span><span>R</span><span>+4</span></div><button>Join privately <Check size={18} /></button></div>}{circleTab === 'Help' && <div className="contribution-grid">{[['🎂', 'Bring cake'], ['🎲', 'Bring a game'], ['🎵', 'Choose a song'], ['📷', 'Choose a photo'], ['👋', 'Welcome someone'], ['✅', 'Just attend']].map(([icon, label]) => <button key={label} onClick={() => setRequested(label)} className={requested === label ? 'chosen' : ''}><span>{icon}</span><strong>{label}</strong><small>{label === 'Just attend' ? 'Always enough' : 'Optional'}</small></button>)}</div>}</section>
 
-      <div className="circle-layout">
-        <div className="circle-main">
-          <section className="announcement-card">
-            <div className="announcement-mark"><Bell size={20} aria-hidden="true" /></div>
-            <div>
-              <span className="section-eyebrow">From Tasha, event host</span>
-              <h2>“We will pause at the garden benches before we begin walking.”</h2>
-              <p>Posted today at 9:10 AM. This answer is also added to the event facts.</p>
-            </div>
-          </section>
+  const renderSupport = () => <section className="screen support-screen"><div className="welcome-row"><div><p className="eyebrow">SUPPORT</p><h1>What help would be useful?</h1><p>Pick one kind of help. A staff person will talk with you.</p></div><ListenButton text="What help would be useful? Pick one kind of help. A staff person will talk with you." label="support options" slow={slow} /></div><div className="support-grid">{supportCards.map(([Icon, title, detail, staff, status]) => <article key={title}><div className="support-icon"><Icon size={30} /></div><h2>{title}</h2><p>{detail}</p><span>{staff}</span><small>{status}</small><button onClick={() => setRequested(title)}>{requested === title ? <Check size={18} /> : <Phone size={18} />}{requested === title ? 'Help request sent' : 'Ask for help'}</button></article>)}</div><p className="support-footer"><CircleHelp size={18} />This is a request, not a booking. Staff will confirm what is possible.</p></section>
 
-          <section className="conversation-card">
-            <div className="card-heading">
-              <div>
-                <span className="section-eyebrow">One moderated question</span>
-                <h2>What happens if I need a break early?</h2>
-              </div>
-              <button className="icon-button" aria-label="More question actions"><MoreHorizontal size={18} aria-hidden="true" /></button>
-            </div>
-            <div className="reply">
-              <span className="reply-avatar">T</span>
-              <div>
-                <strong>Tasha · host</strong>
-                <p>You can let me know at the benches, or leave with your support person. There is no pressure to finish the route.</p>
-              </div>
-            </div>
-            <button className="text-button">Ask a private question <ChevronRight size={16} aria-hidden="true" /></button>
-          </section>
-        </div>
+  const renderStaff = () => <section className="staff-screen"><header><div><p className="eyebrow">STAFF TOOLS · PROTOTYPE ONLY</p><h1>Event workspace</h1><p>Detailed tools stay separate from the participant calendar.</p></div><button onClick={() => { setStaffOpen(false); setTab('home') }}><ArrowLeft size={19} />Participant view</button></header><div className="staff-grid"><article><h2>1. Event details</h2><label>Event name<input defaultValue="Accessible Nature Walk" /></label><label>Plain-language description<textarea defaultValue={events[0].plain} /></label><button>Save event details</button></article><article><h2>2. Arrival and access</h2><p><Image size={18} />4 arrival photos ready</p><p><Check size={18} />Step-free path: reported Jul 10</p><p><CircleHelp size={18} />Quiet bench: confirmed by host</p><button>Update access facts</button></article><article><h2>3. Community and support</h2><p><Users size={18} />8 private attendees</p><p><MessageCircle size={18} />2 chat questions to review</p><p><Camera size={18} />3 photos waiting for consent check</p><button>Open moderation</button></article><article><h2>4. Support coordination</h2><p><Accessibility size={18} />Jordan: mobility support</p><p><Bus size={18} />Route 7 transport information</p><p><ShieldCheck size={18} />No support is assigned automatically</p><button>Review support requests</button></article></div></section>
 
-        <aside className="circle-side">
-          <section className="people-card">
-            <div className="card-heading">
-              <div>
-                <span className="section-eyebrow">Who is coming</span>
-                <h2>8 people are planning to join</h2>
-              </div>
-              <UsersRound size={20} aria-hidden="true" />
-            </div>
-            <div className="avatar-row" aria-label="Eight event participants, names hidden">
-              {['M', 'J', 'S', 'A', 'R', 'D', 'K', 'L'].map((initial, index) => (
-                <span className={'avatar avatar-' + index} key={initial + index}>{initial}</span>
-              ))}
-            </div>
-            <p>Names only appear when each person chooses to share them.</p>
-          </section>
-
-          <section className="bring-card">
-            <div className="card-heading">
-              <div>
-                <span className="section-eyebrow">Bring together</span>
-                <h2>Small things, optional.</h2>
-              </div>
-              <Wheat size={20} aria-hidden="true" />
-            </div>
-            <div className="bring-item">
-              <span><span className="bring-dot cake" /> Cake</span>
-              <strong>Sam is bringing it</strong>
-            </div>
-            <div className="bring-item">
-              <span><span className="bring-dot icing" /> Icing</span>
-              <button className={cakeClaimed ? 'claimed-item' : 'claim-item'} onClick={() => setCakeClaimed(!cakeClaimed)}>
-                {cakeClaimed ? 'You are bringing it' : 'I can bring this'}
-              </button>
-            </div>
-            <p className="muted-note">Just attending is always enough.</p>
-          </section>
-
-          <section className="readiness-card">
-            <div className="readiness-copy">
-              <Sparkles size={19} aria-hidden="true" />
-              <span>Event readiness</span>
-              <strong>{cakeClaimed ? '76%' : '68%'}</strong>
-            </div>
-            <div className="readiness-track"><span style={{ width: cakeClaimed ? '76%' : '68%' }} /></div>
-            <p>Access facts, questions, and optional contributions help the group prepare together.</p>
-          </section>
-        </aside>
-      </div>
-    </section>
-  )
-
-  const renderHost = () => (
-    <section className="screen host-screen" aria-labelledby="host-title">
-      <div className="host-heading">
-        <div>
-          <span className="section-eyebrow">Host workspace</span>
-          <h1 id="host-title">Make the invitation clear.</h1>
-          <p>Publish facts people can use. Mark unknowns instead of guessing.</p>
-        </div>
-        <div className="host-status">
-          <span className="mock-chip"><Bot size={14} aria-hidden="true" /> Prototype data only</span>
-          <button className="outline-button" onClick={() => goTo('plan')}>
-            Preview public event <MoveRight size={17} aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-
-      <div className="host-layout">
-        <section className="host-form-card">
-          <div className="card-heading">
-            <div>
-              <span className="section-eyebrow">Step 1 of 2</span>
-              <h2>Event and arrival facts</h2>
-            </div>
-            <PencilLine size={20} aria-hidden="true" />
-          </div>
-          <label>
-            Event name
-            <input value={hostTitle} onChange={(event) => setHostTitle(event.target.value)} />
-          </label>
-          <label>
-            Arrival point
-            <input value={entrance} onChange={(event) => setEntrance(event.target.value)} />
-          </label>
-          <div className="two-column-fields">
-            <label>
-              Quiet break space
-              <select value={quietState} onChange={(event) => setQuietState(event.target.value)}>
-                <option>Confirmed</option>
-                <option>Reported</option>
-                <option>Not known</option>
-              </select>
-            </label>
-            <label>
-              Support status
-              <select value={supportState} onChange={(event) => setSupportState(event.target.value)}>
-                <option>Not arranged</option>
-                <option>Coordinator reviewing</option>
-                <option>Arranged</option>
-              </select>
-            </label>
-          </div>
-          <div className="provenance-note">
-            <ClipboardCheck size={18} aria-hidden="true" />
-            <p><strong>Source owner:</strong> Our Farm team · <strong>Last checked:</strong> Jul 10, 2026</p>
-          </div>
-          <button className={published ? 'published-button' : 'primary-button'} onClick={() => setPublished(!published)}>
-            {published ? <Check size={18} aria-hidden="true" /> : <CalendarDays size={18} aria-hidden="true" />}
-            {published ? 'Saved to event preview' : 'Save event facts'}
-          </button>
-        </section>
-
-        <section className="coordinator-card">
-          <div className="card-heading">
-            <div>
-              <span className="section-eyebrow">Step 2 of 2</span>
-              <h2>Coordinator review</h2>
-            </div>
-            <ShieldCheck size={20} aria-hidden="true" />
-          </div>
-          <p className="coordinator-intro">AI can surface an option. A coordinator reviews it, and Maya chooses whether it works.</p>
-
-          <div className="support-tabs" role="tablist" aria-label="Support recommendation type">
-            <button
-              className={supportMode === 'paid' ? 'active' : ''}
-              onClick={() => setSupportMode('paid')}
-              role="tab"
-              aria-selected={supportMode === 'paid'}
-            >
-              Paid support
-            </button>
-            <button
-              className={supportMode === 'helper' ? 'active' : ''}
-              onClick={() => setSupportMode('helper')}
-              role="tab"
-              aria-selected={supportMode === 'helper'}
-            >
-              Verified helper
-            </button>
-          </div>
-
-          {supportMode === 'paid' ? (
-            <div className="suggestion-card">
-              <div className="suggestion-person">
-                <span className="person-badge teal">AK</span>
-                <div>
-                  <span className="mock-chip">Mock suggestion</span>
-                  <h3>Alex Kim · Community Support Worker</h3>
-                  <p>Available Saturday 9:45 AM - 12:45 PM</p>
-                </div>
-              </div>
-              <div className="fit-lines">
-                <span><Check size={15} aria-hidden="true" /> Outdoor mobility support training</span>
-                <span><Check size={15} aria-hidden="true" /> Same neighbourhood and travel window</span>
-                <span><X size={15} aria-hidden="true" /> Participant acceptance still needed</span>
-              </div>
-            </div>
-          ) : (
-            <div className="suggestion-card">
-              <div className="suggestion-person">
-                <span className="person-badge amber">ML</span>
-                <div>
-                  <span className="mock-chip">Mock suggestion</span>
-                  <h3>Mei Liu · Approved event helper</h3>
-                  <p>Trail orientation verified · 10:00 AM - 12:30 PM</p>
-                </div>
-              </div>
-              <div className="fit-lines">
-                <span><Check size={15} aria-hidden="true" /> Role boundaries approved for this event</span>
-                <span><Check size={15} aria-hidden="true" /> Host supervision in place</span>
-                <span><X size={15} aria-hidden="true" /> Not a replacement for required paid care</span>
-              </div>
-            </div>
-          )}
-
-          <div className="review-footer">
-            <p><LockKeyhole size={15} aria-hidden="true" /> No care is assigned here. This is a local prototype of a coordinator review.</p>
-            <button className={reviewed ? 'reviewed-button' : 'secondary-button'} onClick={() => setReviewed(!reviewed)}>
-              {reviewed ? <Check size={17} aria-hidden="true" /> : <ShieldCheck size={17} aria-hidden="true" />}
-              {reviewed ? 'Coordinator review recorded' : 'Review suggestion'}
-            </button>
-          </div>
-        </section>
-      </div>
-
-      <div className="host-preview-strip">
-        <div>
-          <span className="section-eyebrow">Live preview</span>
-          <strong>{hostTitle}</strong>
-          <span>{entrance}</span>
-          <StatusPill state={quietState} />
-          <span className="preview-support">Support: {supportState}</span>
-        </div>
-        <button className="text-button" onClick={() => goTo('plan')}>Open public preview <ArrowRight size={16} aria-hidden="true" /></button>
-      </div>
-    </section>
-  )
-
-  const renderView = () => {
-    if (view === 'plan') return renderPlan()
-    if (view === 'circle') return renderCircle()
-    if (view === 'host') return renderHost()
-    return renderDiscover()
-  }
-
-  return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark"><Sparkles size={19} aria-hidden="true" /></span>
-          <span>belonging<br /><strong>loop</strong></span>
-        </div>
-        <nav className="main-nav" aria-label="Prototype views">
-          <button className={view === 'discover' ? 'nav-item active' : 'nav-item'} onClick={() => goTo('discover')}>
-            <Compass size={18} aria-hidden="true" /><span>My wish</span>
-          </button>
-          <button className={view === 'plan' ? 'nav-item active' : 'nav-item'} onClick={() => goTo('plan')}>
-            <Route size={18} aria-hidden="true" /><span>Before I go</span>
-          </button>
-          <button className={view === 'circle' ? 'nav-item active' : 'nav-item'} onClick={() => goTo('circle')}>
-            <MessageCircle size={18} aria-hidden="true" /><span>Event circle</span>
-          </button>
-        </nav>
-        <div className="sidebar-bottom">
-          <button className={view === 'host' ? 'host-switch active' : 'host-switch'} onClick={() => goTo('host')} aria-label="Open host workspace">
-            <span className="switch-icon"><Menu size={17} aria-hidden="true" /></span>
-            <span><small>For hosts</small>Workspace</span>
-          </button>
-          <div className="sidebar-note">
-            <ShieldCheck size={16} aria-hidden="true" />
-            <span>Needs stay private.<br />Facts stay honest.</span>
-          </div>
-        </div>
-      </aside>
-
-      <main className="main-content">
-        <header className="topbar">
-          <div className="breadcrumbs"><span>Waterloo Region</span><ChevronRight size={14} aria-hidden="true" /><strong>Saturday, July 18</strong></div>
-          <div className="topbar-actions">
-            <span className="demo-chip">Interactive prototype</span>
-            <button className="icon-button" aria-label="Notifications"><Bell size={18} aria-hidden="true" /></button>
-            <button className="avatar avatar-main" aria-label="Maya's private profile">M</button>
-          </div>
-        </header>
-        {renderView()}
-      </main>
-    </div>
-  )
+  return <div className="app-shell">{header}<main>{tab === 'home' ? renderHome() : tab === 'recommended' ? renderRecommended() : tab === 'week' ? renderWeek() : tab === 'circle' ? renderCircle() : tab === 'support' ? renderSupport() : renderStaff()}</main>{tab !== 'staff' && <nav className="bottom-nav" aria-label="Main navigation">{navItems.map(([Icon, value, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => { setSelected(null); setTab(value) }} aria-label={label}><Icon size={23} /><span>{label}</span></button>)}</nav>}</div>
 }
 
 export default App

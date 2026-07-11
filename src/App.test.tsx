@@ -5,51 +5,35 @@ import App from './App'
 
 afterEach(cleanup)
 
-describe('Belonging Loop prototype', () => {
-  it('moves a member from a wish to a transparent event match', async () => {
+describe('Belonging Loop accessible calendar', () => {
+  it('opens a recommended event and saves it to My Week', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    expect(
-      screen.getByRole('heading', { name: 'A day that feels like yours.' }),
-    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /recommended/i }))
+    await user.click(screen.getByRole('button', { name: 'Accessible Nature Walk' }))
+    expect(screen.getByRole('heading', { name: 'Accessible Nature Walk' })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Show my match' }))
-
-    expect(
-      screen.getByRole('heading', { name: 'Saturday Trail Circle' }),
-    ).toBeInTheDocument()
-    expect(screen.getByText('Mobility support has not been arranged')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /save to my week/i }))
+    await user.click(screen.getByRole('button', { name: 'My Week' }))
+    expect(screen.getByText('Accessible Nature Walk')).toBeInTheDocument()
   })
 
-  it('turns an unmatched interest into an anonymous group wish', async () => {
+  it('switches to PECS choices without requiring typing', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: /music/i }))
-    await user.click(screen.getByRole('button', { name: 'Show my match' }))
-
-    expect(
-      screen.getByRole('heading', {
-        name: 'We do not see a close music match for Saturday yet.',
-      }),
-    ).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Share this wish' }))
-
-    expect(screen.getByText('Wish shared anonymously')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'PECS mode' }))
+    expect(screen.getByText('Tap a picture')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /outdoors/i })).toBeInTheDocument()
   })
 
-  it('reflects a host support-status update in the live preview', async () => {
+  it('shows a slowed audio state when a speaker control is used', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: 'Open host workspace' }))
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Support status' }),
-      'Coordinator reviewing',
-    )
-
-    expect(screen.getByText('Support: Coordinator reviewing')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Audio First' }))
+    await user.click(screen.getAllByRole('button', { name: /listen/i })[0])
+    expect(screen.getByText('Speaking slowly')).toBeInTheDocument()
   })
 })
