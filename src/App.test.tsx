@@ -23,7 +23,7 @@ describe('Belonging Loop accessible calendar', () => {
     await user.click(screen.getByRole('button', { name: 'Accessible Nature Walk' }))
     expect(screen.getByRole('heading', { name: 'Accessible Nature Walk' })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /save to my week/i }))
+    await user.click(screen.getByRole('button', { name: /(?:save|saved) to my week/i }))
     await user.click(screen.getByRole('button', { name: 'My Week' }))
     expect(screen.getByText('Accessible Nature Walk')).toBeInTheDocument()
   })
