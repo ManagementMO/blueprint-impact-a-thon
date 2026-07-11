@@ -11,6 +11,8 @@ import { AccessibilityBar, ColorModePicker, ColorMode, ReadingMode } from './com
 import { Language, ListenButton } from './components/accessibility/ListenButton'
 import { Onboarding } from './components/features/Onboarding'
 import { HostProfile } from './components/host/HostProfile'
+import { EventCommunity } from './components/community/EventCommunity'
+import { ReminderModal } from './components/features/ReminderModal'
 
 type Tab = 'home' | 'recommended' | 'week' | 'circle' | 'support' | 'staff'
 
@@ -78,6 +80,8 @@ function App() {
   const [requested, setRequested] = useState<string | null>(null)
   const [staffOpen, setStaffOpen] = useState(false)
   const [accessibilityLens, setAccessibilityLens] = useState(false)
+  const [reminders, setReminders] = useState(false)
+  const [reminderChoice, setReminderChoice] = useState<string | null>(null)
   const slow = mode === 'audio'
   const selectedEvent = selected ?? events[0]
   const save = (event: Event) => setSaved((ids) => ids.includes(event.id) ? ids : [...ids, event.id])
@@ -95,6 +99,7 @@ function App() {
     <header className="app-header">
       <button className="brand" onClick={() => { setSelected(null); setTab('home') }} aria-label="Belonging Loop home"><span><Sparkles size={20} /></span>belonging <strong>loop</strong></button>
       <AccessibilityBar mode={mode} pecs={pecs} language={language} onMode={setMode} onPecs={() => setPecs(!pecs)} onColor={() => setColorPicker(true)} onLanguage={setLanguage} />
+      <button className="notification-button" onClick={() => setReminders(true)} aria-label="Reminder settings"><Bell size={22} /></button>
       <button className="staff-entry" onClick={() => { setStaffOpen(!staffOpen); setTab(staffOpen ? 'home' : 'staff') }} aria-label="Open staff tools"><Settings2 size={20} /><span>Staff</span></button>
     </header>
     {pecs && <div className="pecs-banner" role="status"><Image size={21} /><strong>PECS is ON</strong><span>Tap a picture.</span></div>}
@@ -131,7 +136,7 @@ function App() {
 
   if (onboarding) return <div className="app-shell">{header}<Onboarding onFinish={() => setOnboarding(false)} onMode={(nextMode, nextPecs) => { setMode(nextMode); if (nextPecs) setPecs(true) }} />{colorPicker && <ColorModePicker onChoose={setColorMode} onClose={() => setColorPicker(false)} />}</div>
 
-  return <div className="app-shell">{header}<main id="main-content">{tab === 'home' ? renderHome() : tab === 'recommended' ? renderRecommended() : tab === 'week' ? renderWeek() : tab === 'circle' ? renderCircle() : tab === 'support' ? renderSupport() : renderStaff()}</main>{tab !== 'staff' && <nav className="bottom-nav" aria-label="Main navigation">{navItems.map(([Icon, value, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => { setSelected(null); setTab(value) }} aria-label={label}><Icon size={30} /><span>{label}</span></button>)}</nav>}{colorPicker && <ColorModePicker onChoose={setColorMode} onClose={() => setColorPicker(false)} />}</div>
+  return <div className="app-shell">{header}<main id="main-content">{tab === 'home' ? renderHome() : tab === 'recommended' ? renderRecommended() : tab === 'week' ? renderWeek() : tab === 'circle' ? <EventCommunity event={selectedEvent} slow={slow} language={language} /> : tab === 'support' ? renderSupport() : renderStaff()}</main>{tab !== 'staff' && <nav className="bottom-nav" aria-label="Main navigation">{navItems.map(([Icon, value, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => { setSelected(null); setTab(value) }} aria-label={label}><Icon size={30} /><span>{label}</span></button>)}</nav>}{colorPicker && <ColorModePicker onChoose={setColorMode} onClose={() => setColorPicker(false)} />}{reminders && <ReminderModal choice={reminderChoice} onChoose={setReminderChoice} onClose={() => setReminders(false)} />}</div>
 }
 
 export default App

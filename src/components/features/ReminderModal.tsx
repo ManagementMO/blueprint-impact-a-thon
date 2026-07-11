@@ -1,0 +1,6 @@
+import { Bell, Mail, MessageCircle, X } from 'lucide-react'
+
+export function ReminderModal({ choice, onChoose, onClose }: { choice: string | null; onChoose: (choice: string) => void; onClose: () => void }) {
+  const choices = [[MessageCircle, 'WhatsApp', 'We text you the day before and 1 hour before.'], [Mail, 'Email', 'We email you the day before and 1 hour before.'], [Bell, 'App notification', 'Your phone shows a reminder.']] as const
+  return <section className="reminder-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-title"><button className="modal-close" onClick={onClose} aria-label="Close reminder settings"><X /></button>{choice ? <><p className="eyebrow">REMINDERS SET</p><h2 id="reminder-title">{choice} is ready</h2><p>We will remind you before each event.</p><button className="text-action" onClick={() => onChoose('')}>Change this</button></> : <><h2 id="reminder-title">How do you want to be reminded?</h2><p>Pick one. We will remind you before each event.</p><div className="reminder-options">{choices.map(([Icon, title, text]) => <button key={title} onClick={() => onChoose(title)} aria-label={'Choose ' + title}><Icon size={32} /><strong>{title}</strong><span>{text}</span><b>Choose {title}</b></button>)}</div></>}</section>
+}
